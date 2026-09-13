@@ -2,10 +2,10 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
 from esphome.components import time as time_
-from esphome.const import CONF_ID, CONF_NUMBER, PLATFORM_ESP32
+from esphome.const import CONF_ID, CONF_NUMBER, PLATFORM_ESP8266
 
 CODEOWNERS = ["@misterblack1"]
-ESP_PLATFORMS = [PLATFORM_ESP32]
+ESP_PLATFORMS = [PLATFORM_ESP8266]
 
 aip33628_ns = cg.esphome_ns.namespace("aip33628")
 Aip33628Panel = aip33628_ns.class_("Aip33628Panel", cg.Component)
@@ -20,18 +20,23 @@ CONF_TWELVE_HOUR = "twelve_hour"
 CONF_BLINK_COLON = "blink_colon"
 
 
-def _low_bank_pin(value):
-    """Both buses are clocked from one write to the low GPIO output register.
+def _fast_gpio_pin(value):
+    """Validate a pin usable by the ESP8266 GPOS/GPOC fast GPIO registers.
 
-    That register only reaches GPIO0 to GPIO31. A pin above that would need a
-    second register and a second store per edge, which is most of the reason
-    the frame send is fast enough to subdivide a COM slot at all.
+    The display scan clocks both buses with direct GPIO register writes. Those
+    registers cover GPIO0 through GPIO15; GPIO16 uses a separate register.
+    GPIO6 through GPIO11 are connected to the module flash and cannot be used.
     """
     pin = value[CONF_NUMBER]
-    if pin >= 32:
+    if pin < 0 or pin > 15:
         raise cv.Invalid(
-            f"GPIO{pin} is above GPIO31, and the display scan drives all four "
-            "lines from the low output register. Pick a pin below GPIO32."
+            f"GPIO{pin} cannot be driven by the ESP8266 GPOS/GPOC registers. "
+            "Use a GPIO from 0 through 15."
+        )
+    if 6 <= pin <= 11:
+        raise cv.Invalid(
+            f"GPIO{pin} is reserved for the ESP8266 flash interface. "
+            "Pick another GPIO."
         )
     return value
 
@@ -40,16 +45,16 @@ CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(Aip33628Panel),
         cv.Required(CONF_CLK_PIN): cv.All(
-            pins.internal_gpio_output_pin_schema, _low_bank_pin
+            pins.internal_gpio_output_pin_schema, _fast_gpio_pin
         ),
         cv.Required(CONF_DATA_PIN): cv.All(
-            pins.internal_gpio_output_pin_schema, _low_bank_pin
+            pins.internal_gpio_output_pin_schema, _fast_gpio_pin
         ),
         cv.Required(CONF_CLK2_PIN): cv.All(
-            pins.internal_gpio_output_pin_schema, _low_bank_pin
+            pins.internal_gpio_output_pin_schema, _fast_gpio_pin
         ),
         cv.Required(CONF_DATA2_PIN): cv.All(
-            pins.internal_gpio_output_pin_schema, _low_bank_pin
+            pins.internal_gpio_output_pin_schema, _fast_gpio_pin
         ),
         cv.Optional(CONF_TIME_ID): cv.use_id(time_.RealTimeClock),
         # A fixed ceiling on IS[3:0]. It must not depend on what is on screen,
