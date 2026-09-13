@@ -21,10 +21,8 @@ esphome:
           std::string ef = id(effect_mode).current_option();
           id(panel)->set_effect(ef == "Color Cycle" ? 1 : ef == "Flash" ? 2 : 0);
 
-esp32:
-  board: esp32dev
-  framework:
-    type: arduino
+esp8266:
+  board: nodemcuv2
 
 external_components:
   - source:
@@ -33,6 +31,7 @@ external_components:
 
 logger:
   level: INFO
+  baud_rate: 0  # GPIO3/RX is used as Button 2
 
 api:
   encryption:
@@ -182,10 +181,10 @@ time:
 
 aip33628:
   id: panel
-  clk_pin: GPIO22    # MCU socket pin 14 (HU-058D) or 16 (HU-058/SE), driver 1
-  data_pin: GPIO21   # MCU socket pin 5,  driver 1
-  clk2_pin: GPIO19   # MCU socket pin 1,  driver 2
-  data2_pin: GPIO18  # MCU socket pin 2,  driver 2
+  clk_pin: GPIO5    # MCU socket pin 14 (HU-058D) or 16 (HU-058/SE), driver 1
+  data_pin: GPIO4   # MCU socket pin 5,  driver 1
+  clk2_pin: GPIO14   # MCU socket pin 1,  driver 2
+  data2_pin: GPIO12  # MCU socket pin 2,  driver 2
   time_id: ha_time
   # Power on defaults. The switches below own both after that, and they
   # restore their last state, so these only matter for a first ever boot.
@@ -209,7 +208,7 @@ light:
 
 # The two front panel buttons. Nothing on the board pulls these nets up. The
 # stock 8051 held them high with its own quasi-bidirectional port pullup, and
-# that chip is out of the socket, so the ESP32 internal pullup is the only one
+# that chip is out of the socket, so the ESP8266 internal pullup is the only one
 # and the lines never see 5V. Switch closed shorts to ground, hence inverted.
 #
 # No behavior is attached here on purpose. Home Assistant is the control
@@ -220,7 +219,7 @@ binary_sensor:
     id: button_1
     name: Button 1
     pin:
-      number: GPIO32  # MCU socket pin 9, net S1, top button on the case
+      number: GPIO13  # MCU socket pin 9, net S1, top button on the case
       mode:
         input: true
         pullup: true
@@ -232,7 +231,7 @@ binary_sensor:
     id: button_2
     name: Button 2
     pin:
-      number: GPIO33  # MCU socket pin 10, net S2, bottom button on the case
+      number: GPIO3  # MCU socket pin 10, net S2, bottom button on the case
       mode:
         input: true
         pullup: true
