@@ -66,6 +66,17 @@ sensor, is in `hardware.md`.
 | GPIO33 | 10 | S2, bottom button |
 | GND | 8 | GND |
 
+| ESP8266(NodeMCU) | Pin | Net |
+| --- | --- | --- |
+| GPIO05(D1) | 14 on HU-058D; 16 on HU-058 / HU-058SE | CLK, driver 1 |
+| GPIO04(D2) | 5 | DATA, driver 1 |
+| GPIO14(D5) | 1 | CLK_1, driver 2 |
+| GPIO12(D6) | 2 | DATA_1, driver 2 |
+| GPIO13(D7) | 9 | S1, top button |
+| GPIO3(RX) | 10 | S2, bottom button |
+| GND | 8 | GND |
+
+
 Solder straight into the empty through holes. That is what fits in the case,
 and the board is still reversible, since a socket costs pennies if you ever
 want the 8051 back.
