@@ -5,7 +5,6 @@
 #include "esphome/components/light/light_output.h"
 #include "esphome/components/time/real_time_clock.h"
 
-#include <driver/gptimer.h>
 
 namespace esphome {
 namespace aip33628 {
@@ -14,7 +13,7 @@ namespace aip33628 {
 // Mapping, scan timing and the current budget are documented in
 // docs/display-map.md.
 
-static const uint8_t DRAM_ATTR COM_SEQ[4] = {0x30, 0x0C, 0x03, 0xC0};
+static const uint8_t COM_SEQ[4] = {0x30, 0x0C, 0x03, 0xC0};
 
 // Each COM pair holds the bus for 600us, so a full four pair cycle is 2400us
 // and the panel refreshes at 416.7Hz, within a hertz of what the stock
@@ -39,8 +38,8 @@ static const uint16_t IS_MA[16] = {25, 51, 76, 101, 126, 152, 177, 202,
 // rest of the frame. Steps 0 and 15 are palindromes, which is why getting
 // this wrong looks correct at both ends of the brightness range and scrambles
 // the order everywhere in between. The table is its own inverse.
-static const uint8_t DRAM_ATTR IS_WIRE[16] = {0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
-                                              0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF};
+static uint8_t IS_WIRE[16] = {0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
+                               0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF};
 
 enum Channel : uint8_t { CH_BLUE = 0, CH_GREEN = 1, CH_RED = 2 };
 
@@ -168,9 +167,8 @@ class Aip33628Panel : public Component {
   void write_digit_(uint8_t block, char c);
   void write_pos_(uint8_t block, uint8_t seg, bool on);
   void draw_number_(int value, char unit);
-  static bool scan_tick_(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata,
-                         void *arg);
-  void send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs, uint8_t is);
+  static void IRAM_ATTR scan_tick_();
+  void IRAM_ATTR send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs, uint8_t is);
 
   InternalGPIOPin *clk_{nullptr};
   InternalGPIOPin *data_{nullptr};
@@ -178,10 +176,9 @@ class Aip33628Panel : public Component {
   InternalGPIOPin *data2_{nullptr};
   time::RealTimeClock *time_{nullptr};
 
-  // Port bit masks for the four pins. A frame goes out as direct register
-  // stores with both buses clocked together, which takes 6.4us against 28.0us
-  // for two passes through ISRInternalGPIOPin. All four pins have to live
-  // below GPIO32 for this, which __init__.py enforces at config time.
+  // Port bit masks for the four pins. A frame goes out through the ESP8266
+  // GPOS/GPOC registers with both buses clocked together. Those registers
+  // cover GPIO0 through GPIO15; __init__.py also rejects the flash pins 6..11.
   uint32_t clk_mask_{0}, data_mask_{0}, clk2_mask_{0}, data2_mask_{0};
 
 
