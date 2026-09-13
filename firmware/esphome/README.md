@@ -9,7 +9,7 @@ Mapping, scan timing and the current budget are in
 
 ## Start here
 
-I recommend you build and flash the firmware onto the ESP32 before you wire anything to the clock board.
+I recommend you build and flash the firmware onto the ESP8266 before you wire anything to the clock board.
 
 An ESP8266 connected via a USB cable with nothing attached to it will still boot, join
 WiFi and turn up in Home Assistant. Then when you connect the six wires the panel just
