@@ -185,7 +185,7 @@ void Aip33628Panel::setup() {
   render_();
 
   // ESP8266 Timer1 runs from the 80MHz peripheral clock. With TIM_DIV16 it
-  // ticks at 5MHz, so one UNIT_US=40us scan tick is exactly 200 timer ticks.
+  // ticks at 5MHz, so one UNIT_US=40us scan tick is 200 timer ticks.
   
   scan_instance = this;
   timer1_disable();
@@ -225,8 +225,8 @@ void Aip33628Panel::dump_config() {
 //
 // CS and IS are common to the two drivers and only SS differs, so one pass
 // down the bits clocks both buses. That halves the work outright, and going
-// straight to the GPOS/GPOC registers keeps the pair send short enough for the
-// 40us PWM sub-frame. The AiP33628 accepts 30MHz and asks for only 16ns of
+// straight to the GPOS/GPOC registers.
+// The AiP33628 accepts 30MHz and asks for only 16ns of
 // CLK high and low, so explicit delay padding is not required.
 void IRAM_ATTR Aip33628Panel::send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs, uint8_t is) {
   const uint32_t wire = (uint32_t) IS_WIRE[is & 0xF] << 24;
@@ -276,7 +276,7 @@ void IRAM_ATTR Aip33628Panel::scan_tick_() {
 
   if (self->wait_ > 0) {
     self->wait_--;
-    return;
+    return;  //Void function
   }
 
   const ScanBuf &b = self->buf_[self->front_];
@@ -294,6 +294,7 @@ void IRAM_ATTR Aip33628Panel::scan_tick_() {
   self->wait_ = (uint8_t) (st.units - 1);  // this tick is the first of the step
   uint8_t next = (uint8_t) (i + 1);
   self->step_ = next >= b.n ? 0 : next;
+  return; //Void function
 }
 
 void Aip33628Panel::write_pos_(uint8_t block, uint8_t seg, bool on) {
