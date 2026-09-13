@@ -294,7 +294,6 @@ void IRAM_ATTR Aip33628Panel::scan_tick_() {
   self->wait_ = (uint8_t) (st.units - 1);  // this tick is the first of the step
   uint8_t next = (uint8_t) (i + 1);
   self->step_ = next >= b.n ? 0 : next;
-  return; //Void function
 }
 
 void Aip33628Panel::write_pos_(uint8_t block, uint8_t seg, bool on) {
