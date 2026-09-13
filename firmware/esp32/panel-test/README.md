@@ -1,4 +1,4 @@
-# Bare-metal panel firmware
+# Bare-metal panel firmware(Not ported to ESP8266)
 
 Drives the HU-058D display from an ESP32-WROOM-32 with nothing but the Arduino
 core. 
