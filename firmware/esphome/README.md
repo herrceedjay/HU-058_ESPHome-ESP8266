@@ -1,6 +1,6 @@
 # ESPHome firmware
 
-| ESP8266(NodeMCU) | Pin | Net |
+| ESP8266(NodeMCUV2) | Pin | Net |
 | --- | --- | --- |
 | GPIO05(D1) | 14 on HU-058D; 16 on HU-058 / HU-058SE | CLK, driver 1 |
 | GPIO04(D2) | 5 | DATA, driver 1 |
