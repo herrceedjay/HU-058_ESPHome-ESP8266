@@ -3,13 +3,14 @@
 #include "esphome/core/log.h"
 
 #include <cmath>
-#include <driver/gptimer.h>
-#include <soc/gpio_struct.h>
+#include <Arduino.h>
+#include <esp8266_peri.h>
 
 namespace esphome {
 namespace aip33628 {
 
 static const char *const TAG = "aip33628";
+static Aip33628Panel *scan_instance = nullptr;
 
 // Each digit is one driver plus one pair of COM pairs, ten LED positions.
 // Driver 1 carries the hours, driver 2 the minutes.
@@ -183,31 +184,16 @@ void Aip33628Panel::setup() {
 
   render_();
 
-  // A general purpose timer, not esp_timer. The esp_timer task dispatch path
-  // runs at task priority on core 0 alongside the WiFi task, which preempts
-  // it and stretches whichever COM slot happens to be lit. A 40us sub-frame
-  // does not ride that out, so this runs from the interrupt instead.
-  gptimer_config_t tcfg = {};
-  tcfg.clk_src = GPTIMER_CLK_SRC_DEFAULT;
-  tcfg.direction = GPTIMER_COUNT_UP;
-  tcfg.resolution_hz = 1000000;  // one tick per microsecond
-
-  gptimer_alarm_config_t acfg = {};
-  acfg.alarm_count = UNIT_US;  // fixed, one tick per binary weight unit
-  acfg.reload_count = 0;
-  acfg.flags.auto_reload_on_alarm = true;
-
-  gptimer_event_callbacks_t cbs = {};
-  cbs.on_alarm = &Aip33628Panel::scan_tick_;
-
-  gptimer_handle_t timer = nullptr;
-  if (gptimer_new_timer(&tcfg, &timer) != ESP_OK ||
-      gptimer_register_event_callbacks(timer, &cbs, this) != ESP_OK ||
-      gptimer_set_alarm_action(timer, &acfg) != ESP_OK ||
-      gptimer_enable(timer) != ESP_OK || gptimer_start(timer) != ESP_OK) {
-    ESP_LOGE(TAG, "could not start the scan timer");
-    this->mark_failed();
-  }
+  // ESP8266 Timer1 runs from the 80MHz peripheral clock. With TIM_DIV16 it
+  // ticks at 5MHz, so one UNIT_US=40us scan tick is exactly 200 timer ticks.
+  
+  scan_instance = this;
+  timer1_disable();
+  timer1_detachInterrupt();
+  timer1_isr_init();
+  timer1_attachInterrupt(&Aip33628Panel::scan_tick_);
+  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
+  timer1_write(UNIT_US * 5);
 }
 
 void Aip33628Panel::dump_config() {
@@ -239,10 +225,9 @@ void Aip33628Panel::dump_config() {
 //
 // CS and IS are common to the two drivers and only SS differs, so one pass
 // down the bits clocks both buses. That halves the work outright, and going
-// straight to the port registers rather than through ISRInternalGPIOPin took
-// the pair from 28.0us to 6.4us. The AiP33628 accepts 30MHz and asks for
-// 16ns of CLK high and low, and a store to the GPIO port costs more than
-// that on its own, so the loop needs no padding.
+// straight to the GPOS/GPOC registers keeps the pair send short enough for the
+// 40us PWM sub-frame. The AiP33628 accepts 30MHz and asks for only 16ns of
+// CLK high and low, so explicit delay padding is not required.
 void IRAM_ATTR Aip33628Panel::send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs, uint8_t is) {
   const uint32_t wire = (uint32_t) IS_WIRE[is & 0xF] << 24;
   uint32_t f1 = (uint32_t) ss1 | ((uint32_t) cs << 16) | wire;
@@ -250,7 +235,7 @@ void IRAM_ATTR Aip33628Panel::send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs,
   const uint32_t clks = clk_mask_ | clk2_mask_;
   const uint32_t dats = data_mask_ | data2_mask_;
 
-  GPIO.out_w1tc = clks | dats;
+  GPOC = clks | dats;
 
   for (int i = 0; i < 30; i++) {
     uint32_t set = 0;
@@ -261,18 +246,18 @@ void IRAM_ATTR Aip33628Panel::send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs,
     f1 >>= 1;
     f2 >>= 1;
     // Data settles while CLK is low, then one rising edge shifts both buses.
-    GPIO.out_w1tc = dats & ~set;
-    GPIO.out_w1ts = set;
-    GPIO.out_w1ts = clks;
+    GPOC = dats & ~set;
+    GPOS = set;
+    GPOS = clks;
     if (i < 29)
-      GPIO.out_w1tc = clks;
+      GPOC = clks;
   }
 
   // CLK is still high after bit 29. A DATA rising edge here is the latch.
-  GPIO.out_w1tc = dats;
-  GPIO.out_w1ts = dats;
-  GPIO.out_w1tc = dats;
-  GPIO.out_w1tc = clks;
+  GPOC = dats;
+  GPOS = dats;
+  GPOC = dats;
+  GPOC = clks;
 }
 
 // Walk the schedule the renderer built. The timer runs at a fixed UNIT_US
@@ -284,12 +269,14 @@ void IRAM_ATTR Aip33628Panel::send_pair_(uint16_t ss1, uint16_t ss2, uint8_t cs,
 //
 // Most ticks do nothing. A saturated color collapses to one step per COM
 // pair, so fourteen of every fifteen calls are a decrement and a return.
-bool IRAM_ATTR Aip33628Panel::scan_tick_(gptimer_handle_t timer,
-                                        const gptimer_alarm_event_data_t *edata, void *arg) {
-  auto *self = static_cast<Aip33628Panel *>(arg);
+void IRAM_ATTR Aip33628Panel::scan_tick_() {
+  auto *self = scan_instance;
+  if (self == nullptr)
+    return;
+
   if (self->wait_ > 0) {
     self->wait_--;
-    return false;
+    return;
   }
 
   const ScanBuf &b = self->buf_[self->front_];
@@ -307,7 +294,6 @@ bool IRAM_ATTR Aip33628Panel::scan_tick_(gptimer_handle_t timer,
   self->wait_ = (uint8_t) (st.units - 1);  // this tick is the first of the step
   uint8_t next = (uint8_t) (i + 1);
   self->step_ = next >= b.n ? 0 : next;
-  return false;  // no task woken, so no yield needed
 }
 
 void Aip33628Panel::write_pos_(uint8_t block, uint8_t seg, bool on) {
