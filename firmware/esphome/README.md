@@ -18,7 +18,7 @@ aip33628:
   clk_pin: GPIO05
   data_pin: GPIO04
   clk2_pin: GPIO14
-  data2_pin: GPIO14
+  data2_pin: GPIO12
   time_id: ha_time
   twelve_hour: true
   blink_colon: true
