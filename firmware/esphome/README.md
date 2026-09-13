@@ -26,9 +26,3 @@ aip33628:
 ```
 
 
-
-The esp_timer task dispatch path runs at task priority on core 0 next to the
-WiFi task, which preempts it and stretches whichever COM slot is lit at the
-time. A full duty slot rides that out. A 40us sub-frame does not, and the same
-jitter reads as uneven digits and a visible pulse on any color that is not
-saturated.
