@@ -11,7 +11,7 @@ Mapping, scan timing and the current budget are in
 
 I recommend you build and flash the firmware onto the ESP32 before you wire anything to the clock board.
 
-An ESP32 connected via a USB cable with nothing attached to it will still boot, join
+An ESP8266 connected via a USB cable with nothing attached to it will still boot, join
 WiFi and turn up in Home Assistant. Then when you connect the six wires the panel just
 lights up.
 
@@ -19,10 +19,8 @@ lights up.
 2. `esphome run clock.yaml` over USB, from this directory.
 3. Adopt the device in Home Assistant.
 4. Build the clock board, `../../docs/wiring.md`.
-5. Wire the six lines to the ESP32 and power it up.
+5. Wire the six lines to the ESP8266 and power it up.
 
-Use the firmware in `../esp32/panel-test/` as it drives the panel with no WiFi and no Home Assistant, so if the display misbehaves it tells you whether the hardware is right before you start suspecting this
-component.
 
 ## Requirements
 
@@ -102,7 +100,7 @@ the buttons, plus a ground.
 
 Full build notes are in `../../docs/wiring.md`.
 
-| ESP32 | Pin | Net |
+| ESP8266(NodeMCU) | Pin | Net |
 | --- | --- | --- |
 | GPIO05(D1) | 14 on HU-058D; 16 on HU-058 / HU-058SE | CLK, driver 1 |
 | GPIO04(D2) | 5 | DATA, driver 1 |
